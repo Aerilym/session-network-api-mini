@@ -172,7 +172,7 @@ class NetworkReader:
 
     def build_network_info(self) -> dict:
         net = self.get_raw_network_info()
-        staked_tokens = int(token_from_atomic(net["total_staked"]))
+        staked_tokens = token_from_atomic(net["total_staked"])
         return {
             "network_size": net["node_count"],
             "network_staked_tokens": staked_tokens,
