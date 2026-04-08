@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Runtime data
+prices.db
+prices.db-shm
+prices.db-wal
+key_x25519
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+Builds/
+Code/

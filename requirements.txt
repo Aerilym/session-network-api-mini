@@ -1,0 +1,14 @@
+Flask>=2.2
+Werkzeug>=2.2
+web3>=7.4
+eth-utils>=5.1
+requests>=2.31
+coloredlogs>=15.0
+# Flask automatically prefers simplejson over stdlib json when installed,
+# which preserves float precision in JSON responses (e.g. price values).
+simplejson>=3.19
+
+# Onion request support (required when enable_onion_requests = True)
+PyNaCl>=1.5
+# session-util is NOT a PyPI package — install it from the Oxen apt repo or from source.
+# See the "Installing session_util" section in README.md.
