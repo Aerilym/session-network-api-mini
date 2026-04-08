@@ -14,11 +14,11 @@ Returns a combined snapshot of token info, network state, and current price.
     "staking_requirement": 25000,
     "staking_reward_pool": 45000000,
     "contract_address": "0x10Ea9E5303670331Bdddfa66A4cEA47dae4fcF3b",
-    "circulating_supply": 100000000
+    "circulating_supply": 100000000.0
   },
   "network": {
     "network_size": 1000,
-    "network_staked_tokens": 25000000,
+    "network_staked_tokens": 25000000.0,
     "network_staked_usd": 12345678.9289283
   },
   "price": {
