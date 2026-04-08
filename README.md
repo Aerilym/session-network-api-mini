@@ -220,44 +220,29 @@ pip install uwsgi
 
     # 4. Run with uWSGI
 uwsgi \
-  --module wsgi:app \
+  --manage-script-name \
+  --mount /=wsgi:app \
   --master \
   --processes 4 \
-  --socket /run/network-api-v2.sock \
-  --chmod-socket=660 \
+  --socket /home/network-api/api/network-api.wsgi \
+  --chmod-socket=666 \
   --vacuum
 ```
 
-Or use an ini file:
-
-```ini
-[uwsgi]
-module        = wsgi:app
-master        = true
-processes     = 4
-socket        = /run/network-api-v2.sock
-chmod-socket  = 660
-vacuum        = true
-die-on-term   = true
-chdir         = /opt/session-network-api-v2
-virtualenv    = /opt/session-network-api-v2/.venv
-```
-
-```bash
-uwsgi --ini uwsgi.ini
-```
+See [`uswgi-template.ini`](uswgi-template.ini) for an example uWSGI vassal configuration.
 
 ### nginx reverse proxy
 
+See [`nginx-template`](nginx-template) for a full nginx server block configuration supporting both HTTP (port 80) and HTTPS (port 443).
+
+The essential location block for proxying to uWSGI is:
+
 ```nginx
-location /api/network/ {
-    include        uwsgi_params;
-    uwsgi_pass     unix:/run/network-api-v2.sock;
-    uwsgi_param    SCRIPT_NAME /api/network;
+location / {
+    include    /etc/nginx/uwsgi_params;
+    uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
 }
 ```
-
-Add `manage-script-name = true` to the uWSGI ini if mounting under a path prefix.
 
 ---
 
@@ -273,5 +258,7 @@ session-network-api-v2/
 ├── price.py            SQLite price reads/writes, CoinGecko client, background polling thread
 ├── schema_prices.sql   SQLite schema for the prices database
 ├── wsgi.py             WSGI entry point
+├── uswgi-template.ini  Example uWSGI vassal configuration
+├── nginx-template      Example nginx server block (HTTP + HTTPS)
 └── requirements.txt    Python dependencies
 ```

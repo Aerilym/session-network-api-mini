@@ -18,7 +18,7 @@ def token_from_atomic(amount: int) -> float:
 
 
 def sqlite_connect_ro(db_path: str):
-    return sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    return sqlite3.connect("file:{}?mode=ro".format(db_path), uri=True)
 
 
 def read_network_info_sqlite(db_path: str) -> dict:
@@ -68,8 +68,9 @@ class Web3BalanceReader:
         self.contract = self.w3.eth.contract(
             address=self.token_address, abi=ERC20_BALANCEOF_ABI)
         log.info(
-            f"Web3 client connected to {config.web3_provider_url} "
-            f"(token={self.token_address})"
+            "Web3 client connected to %s (token=%s)",
+            config.web3_provider_url,
+            self.token_address,
         )
 
     def get_reward_pool_balance(self) -> int:
@@ -84,13 +85,13 @@ class NetworkReader:
         self.cache = cache
         self.ttl = config.live_data_ttl
         self._db_path = config.sqlite_db_ssb
-        self._api_endpoint = f"{config.ssb_api_url.rstrip('/')}/info"
+        self._api_endpoint = "{}/info".format(config.ssb_api_url.rstrip('/'))
         self.circulating_supply_api_url = config.circulating_supply_api_url
 
         if self._db_path:
-            log.info(f"Staking reader: using local SQLite DB at {self._db_path}")
+            log.info("Staking reader: using local SQLite DB at %s", self._db_path)
         else:
-            log.info(f"Staking reader: using remote SSB API at {self._api_endpoint}")
+            log.info("Staking reader: using remote SSB API at %s", self._api_endpoint)
 
         if not config.disable_web3_client:
             self.web3 = Web3BalanceReader(config)
@@ -126,13 +127,13 @@ class NetworkReader:
                 self.circulating_supply_api_url, timeout=10)
             if not resp.ok:
                 log.warning(
-                    f"circulating_supply API returned {
-                        resp.status_code}: {resp.text[:200]}"
+                    "circulating_supply API returned %s: %s",
+                    resp.status_code, resp.text[:200],
                 )
                 return None
             return float(resp.json()["result"])
         except Exception as exc:
-            log.warning(f"Failed to fetch circulating supply: {exc}")
+            log.warning("Failed to fetch circulating supply: %s", exc)
             return None
 
     def get_reward_pool_balance(self) -> int | None:

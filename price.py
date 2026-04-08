@@ -23,7 +23,7 @@ class PriceDB:
 
 
 def _connect_ro(db_path: str):
-    return sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    return sqlite3.connect("file:{}?mode=ro".format(db_path), uri=True)
 
 
 def _connect_rw(db_path: str):
@@ -34,7 +34,7 @@ def init_db(db_path: str, schema_path: str) -> None:
     with _connect_rw(db_path) as conn:
         with open(schema_path) as fh:
             conn.executescript(fh.read())
-    log.info(f"Prices DB initialised at {db_path}")
+    log.info("Prices DB initialised at %s", db_path)
 
 
 def is_db_initialised(db_path: str) -> bool:
@@ -89,13 +89,13 @@ class CoinGeckoClient:
         self._token_ids = config.coingecko_api_token_ids
         ids_param = "%2C".join(config.coingecko_api_token_ids)
         self._url = (
-            f"{config.coingecko_api_url}/v3/simple/price"
-            f"?ids={ids_param}"
-            f"&vs_currencies=usd"
-            f"&include_market_cap=true"
-            f"&include_last_updated_at=true"
-            f"&precision={config.coingecko_precision}"
-        )
+            "{}/v3/simple/price"
+            "?ids={}"
+            "&vs_currencies=usd"
+            "&include_market_cap=true"
+            "&include_last_updated_at=true"
+            "&precision={}"
+        ).format(config.coingecko_api_url, ids_param, config.coingecko_precision)
         self._headers = {
             "accept": "application/json",
             "x-cg-demo-api-key": config.coingecko_api_key,
@@ -105,12 +105,11 @@ class CoinGeckoClient:
         try:
             resp = requests.get(self._url, headers=self._headers, timeout=15)
         except Exception as exc:
-            log.warning(f"CoinGecko request failed: {exc}")
+            log.warning("CoinGecko request failed: %s", exc)
             return None
 
         if not resp.ok:
-            log.warning(f"CoinGecko HTTP {
-                        resp.status_code}: {resp.text[:200]}")
+            log.warning("CoinGecko HTTP %s: %s", resp.status_code, resp.text[:200])
             return None
 
         data = resp.json()
@@ -118,8 +117,7 @@ class CoinGeckoClient:
         for token in self._token_ids:
             entry = data.get(token)
             if entry is None:
-                log.warning(f"CoinGecko: token '{
-                            token}' missing from response")
+                log.warning("CoinGecko: token '%s' missing from response", token)
                 continue
             result.append(
                 PriceDB(
@@ -140,8 +138,7 @@ class PriceFetcher(threading.Thread):
         self._client = CoinGeckoClient(config)
 
     def run(self) -> None:
-        log.info(f"Price fetcher started (interval={
-                 self._interval}s, db={self._db_path})")
+        log.info("Price fetcher started (interval=%ss, db=%s)", self._interval, self._db_path)
         while True:
             self._poll()
             time.sleep(self._interval)
@@ -151,7 +148,7 @@ class PriceFetcher(threading.Thread):
         prices = self._client.fetch()
         if prices:
             write_prices(self._db_path, prices)
-            log.info(f"Wrote {len(prices)} price record(s) to DB")
+            log.info("Wrote %d price record(s) to DB", len(prices))
         else:
             log.warning("No price data received from CoinGecko")
 
@@ -174,7 +171,7 @@ class PriceReader:
         if token not in self._token_ids:
             return None
 
-        key = f"price-{token}-latest"
+        key = "price-{}-latest".format(token)
         value: PriceDB | None = self._cache.get(
             key,
             getter=self._fetch_latest,
@@ -200,7 +197,7 @@ class PriceReader:
         }
 
     def get_range(self, token: str, range_seconds: int) -> list[dict]:
-        key = f"price-range-{token}-{range_seconds}"
+        key = "price-range-{}-{}".format(token, range_seconds)
 
         # The getter recomputes `since` at refresh time so background refreshes
         # always query the correct window rather than the window from cold-start.

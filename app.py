@@ -32,8 +32,9 @@ def create_app(config: Config) -> flask.Flask:
 
     if not is_db_initialised(config.prices_sqlite_db):
         log.info(
-            f"Initialising prices DB at {config.prices_sqlite_db} "
-            f"from {config.prices_sqlite_schema}"
+            "Initialising prices DB at %s from %s",
+            config.prices_sqlite_db,
+            config.prices_sqlite_schema,
         )
         init_db(config.prices_sqlite_db, config.prices_sqlite_schema)
 
@@ -89,11 +90,10 @@ def create_app(config: Config) -> flask.Flask:
     @app.route("/prices/<token>/<period>")
     def route_prices(token: str, period: str):
         if period not in PRICE_PERIODS:
-            flask.abort(400, f"Invalid period '{
-                        period}'. Valid: {list(PRICE_PERIODS)}")
+            flask.abort(400, "Invalid period '{}'. Valid: {}".format(period, list(PRICE_PERIODS)))
 
         if token not in config.coingecko_api_token_ids:
-            flask.abort(404, f"Token '{token}' not found")
+            flask.abort(404, "Token '{}' not found".format(token))
 
         prices = price_reader.get_range(token, PRICE_PERIODS[period])
         return json_response({"prices": prices})

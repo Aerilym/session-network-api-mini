@@ -24,17 +24,17 @@ def _load_or_generate_keypair(key_path: str = "key_x25519") -> nacl.public.Priva
             raw = fh.read()
         if len(raw) != 32:
             raise RuntimeError(
-                f"Invalid {key_path}: expected 32 bytes, got {len(raw)}"
+                "Invalid {}: expected 32 bytes, got {}".format(key_path, len(raw))
             )
         privkey = nacl.public.PrivateKey(raw)
     else:
         privkey = nacl.public.PrivateKey.generate()
         with open(key_path, "wb") as fh:
             fh.write(privkey.encode())
-        log.info(f"Generated new X25519 keypair and saved to {key_path}")
+        log.info("Generated new X25519 keypair and saved to %s", key_path)
 
     pubkey_hex = privkey.public_key.encode(encoder=nacl.encoding.HexEncoder).decode()
-    log.info(f"Onion request server pubkey: {pubkey_hex}")
+    log.info("Onion request server pubkey: %s", pubkey_hex)
     return privkey
 
 
@@ -105,18 +105,18 @@ def _make_subrequest(
     }
 
     try:
-        log.debug(f"Subrequest: {method} {path}")
+        log.debug("Subrequest: %s %s", method, path)
         with app.request_context(subreq_env):
             response = app.full_dispatch_request()
         if response.status_code != OK:
-            log.warning(f"Subrequest {method} {path} returned status {response.status_code}")
+            log.warning("Subrequest %s %s returned status %s", method, path, response.status_code)
         return response, {
             k.lower(): v
             for k, v in response.get_wsgi_headers(subreq_env)
             if k.lower() != "content-length"
         }
     except Exception:
-        log.warning(f"Subrequest {method} {path} failed:\n{traceback.format_exc()}")
+        log.warning("Subrequest %s %s failed:\n%s", method, path, traceback.format_exc())
         raise
 
 
@@ -138,7 +138,7 @@ def _handle_v3_plaintext(app: Flask, body: bytes) -> bytes:
             if req.get("body") == "null":
                 pass
             elif req.get("body"):
-                raise RuntimeError(f"Invalid {method} {endpoint}: must not contain a body")
+                raise RuntimeError("Invalid {} {}: must not contain a body".format(method, endpoint))
 
         if not endpoint.startswith("/"):
             endpoint = "/" + endpoint
@@ -152,13 +152,13 @@ def _handle_v3_plaintext(app: Flask, body: bytes) -> bytes:
 
         if response.status_code == OK:
             data = response.get_data()
-            log.debug(f"v3 subrequest {endpoint} OK, {len(data)} bytes")
+            log.debug("v3 subrequest %s OK, %d bytes", endpoint, len(data))
             return data
 
         return json.dumps({"status_code": response.status_code}).encode()
 
     except Exception as exc:
-        log.warning(f"Invalid v3 onion request: {exc}")
+        log.warning("Invalid v3 onion request: %s", exc)
         return json.dumps({"status_code": BAD_REQUEST}).encode()
 
 
@@ -190,11 +190,11 @@ def _handle_v4_plaintext(app: Flask, body: bytes) -> bytes:
             body=subreq_body,
         )
         data = response.get_data()
-        log.debug(f"v4 subrequest {endpoint} returned {response.status_code}, {len(data)} bytes")
+        log.debug("v4 subrequest %s returned %s, %d bytes", endpoint, response.status_code, len(data))
         out_meta = {"code": response.status_code, "headers": resp_headers}
 
     except Exception as exc:
-        log.warning(f"Invalid v4 onion request: {exc}")
+        log.warning("Invalid v4 onion request: %s", exc)
         out_meta = {"code": BAD_REQUEST, "headers": {"content-type": "text/plain; charset=utf-8"}}
         data = b"Invalid v4 onion request"
 
@@ -216,7 +216,7 @@ def handle_onion_requests(app: Flask, key_path: str = "key_x25519") -> None:
         try:
             return OnionReqParser(pubkey_bytes, privkey_bytes, request.data)
         except Exception as exc:
-            log.warning(f"Failed to decrypt onion request: {exc}")
+            log.warning("Failed to decrypt onion request: %s", exc)
             abort(BAD_REQUEST)
 
     @app.post("/oxen/v3/lsrpc")

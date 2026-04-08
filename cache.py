@@ -53,11 +53,11 @@ class Cache:
                         self._set(key, data, ttl, invalidate_timestamp)
                     except Exception as exc:
                         self.log.warning(
-                            f"Background refresh failed for '{key}': {exc}")
+                            "Background refresh failed for '%s': %s", key, exc)
                     finally:
                         lock.release()
                 threading.Thread(target=_refresh, daemon=True,
-                                 name=f"cache-refresh-{key}").start()
+                                 name="cache-refresh-{}".format(key)).start()
             return self.store[key]
 
         data = getter(getter_args) if getter_args is not None else getter()
