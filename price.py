@@ -140,7 +140,10 @@ class PriceFetcher(threading.Thread):
     def run(self) -> None:
         log.info("Price fetcher started (interval=%ss, db=%s)", self._interval, self._db_path)
         while True:
-            self._poll()
+            try:
+                self._poll()
+            except Exception as exc:
+                log.error("Price fetcher poll failed: %s", exc, exc_info=True)
             time.sleep(self._interval)
 
     def _poll(self) -> None:
@@ -182,6 +185,16 @@ class PriceReader:
 
         if value is None:
             return None
+
+        # Warn if data is older than 3 poll intervals — the fetcher may have stopped.
+        max_age = self._poll_rate * 3
+        age = int(time.time()) - value.updated_at
+        if age > max_age:
+            log.error(
+                "Price data for '%s' is %ds old (max allowed %ds) — "
+                "price fetcher may have stopped",
+                token, age, max_age,
+            )
 
         # Align expiry to the price record's own timestamp so the cache
         # invalidates when a new poll cycle is due, not on a fixed TTL.

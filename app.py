@@ -41,7 +41,6 @@ def create_app(config: Config) -> flask.Flask:
     if config.enable_price_fetcher:
         fetcher = PriceFetcher(config)
         fetcher.start()
-        fetcher._poll()  # immediate blocking poll so the DB has data at startup
     else:
         log.warning(
             "Price fetcher disabled — prices DB must be populated externally")
