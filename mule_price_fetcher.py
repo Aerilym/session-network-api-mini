@@ -25,7 +25,7 @@ else:
         import uwsgi
         log.info("Running as uWSGI mule")
         while True:
-            uwsgi.mule_msg_recv()  # blocking; loops to handle any incoming messages
+            uwsgi.mule_get_msg()  # blocking; loops to handle any incoming messages
     except ImportError:
         log.info("Running outside uWSGI — blocking on price fetcher thread")
         fetcher.join()  # plain blocking loop for local dev
