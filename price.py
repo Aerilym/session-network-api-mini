@@ -132,19 +132,27 @@ class CoinGeckoClient:
 
 class PriceFetcher(threading.Thread):
     def __init__(self, config: Config):
-        super().__init__(daemon=True, name="price-fetcher")
+        super().__init__(name="price-fetcher")
         self._db_path = config.prices_sqlite_db
         self._interval = config.price_poll_rate_seconds
         self._client = CoinGeckoClient(config)
+        self._stop_event = threading.Event()
+
+    def stop(self) -> None:
+        """Signal the fetcher to stop after the current sleep or poll completes."""
+        log.info("Price fetcher stop requested")
+        self._stop_event.set()
 
     def run(self) -> None:
         log.info("Price fetcher started (interval=%ss, db=%s)", self._interval, self._db_path)
-        while True:
+        while not self._stop_event.is_set():
             try:
                 self._poll()
             except Exception as exc:
                 log.error("Price fetcher poll failed: %s", exc, exc_info=True)
-            time.sleep(self._interval)
+            # Use Event.wait() instead of time.sleep() so stop() wakes us immediately.
+            self._stop_event.wait(timeout=self._interval)
+        log.info("Price fetcher stopped")
 
     def _poll(self) -> None:
         log.debug("Polling CoinGecko...")

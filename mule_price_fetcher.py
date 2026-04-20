@@ -1,4 +1,5 @@
 import logging
+import signal
 
 import coloredlogs
 
@@ -21,11 +22,10 @@ else:
     fetcher = PriceFetcher(config)
     fetcher.start()
 
-    try:
-        import uwsgi
-        log.info("Running as uWSGI mule")
-        while True:
-            uwsgi.mule_get_msg()  # blocking; loops to handle any incoming messages
-    except ImportError:
-        log.info("Running outside uWSGI — blocking on price fetcher thread")
-        fetcher.join()  # plain blocking loop for local dev
+    def _handle_sigterm(signum, frame):
+        fetcher.stop()
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+    signal.signal(signal.SIGINT, _handle_sigterm)
+
+    fetcher.join()  # block until stop() is called or the thread exits
