@@ -190,7 +190,7 @@ class PriceReader:
         max_age = self._poll_rate * 3
         age = int(time.time()) - value.updated_at
         if age > max_age:
-            log.error(
+            log.warning(
                 "Price data for '%s' is %ds old (max allowed %ds) — "
                 "price fetcher may have stopped",
                 token, age, max_age,

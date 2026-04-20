@@ -45,5 +45,11 @@ class Config:
 
     live_data_ttl: int = 60
 
+    # Session webhook for error notifications. Set session_webhook_url to enable.
+    # The URL should be the full webhook endpoint including the token, e.g.:
+    #   http://{ip}:{port}/{token}
+    session_webhook_url: str | None = None
+    session_webhook_display_name: str = "Network API"
+
 
 config = Config()

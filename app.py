@@ -3,11 +3,12 @@ import time
 
 import coloredlogs
 import flask
+from werkzeug.exceptions import HTTPException, InternalServerError
 
 from cache import Cache
 from config import Config
 from network import NetworkReader
-from price import PriceFetcher, PriceReader, init_db, is_db_initialised
+from price import PriceReader, init_db, is_db_initialised
 
 log = logging.getLogger("app")
 
@@ -28,6 +29,12 @@ def create_app(config: Config) -> flask.Flask:
     coloredlogs.install(level=config.log_level, milliseconds=True, isatty=True)
     log.info("Creating session-network-api-v2 application")
 
+    if config.session_webhook_url:
+        from webhook import WebhookLogHandler, install_excepthooks
+        logging.getLogger().addHandler(WebhookLogHandler())
+        install_excepthooks()
+        log.info("Session webhook error reporting enabled")
+
     cache = Cache(default_ttl=config.live_data_ttl)
 
     if not is_db_initialised(config.prices_sqlite_db):
@@ -37,13 +44,6 @@ def create_app(config: Config) -> flask.Flask:
             config.prices_sqlite_schema,
         )
         init_db(config.prices_sqlite_db, config.prices_sqlite_schema)
-
-    if config.enable_price_fetcher:
-        fetcher = PriceFetcher(config)
-        fetcher.start()
-    else:
-        log.warning(
-            "Price fetcher disabled — prices DB must be populated externally")
 
     price_reader = PriceReader(config, cache)
     network_reader = NetworkReader(config, cache)
@@ -111,6 +111,14 @@ def create_app(config: Config) -> flask.Flask:
             raise
     else:
         log.warning("Onion requests are disabled")
+
+    @app.errorhandler(Exception)
+    def handle_unhandled_exception(exc: Exception):
+        # HTTPExceptions are user-caused (4xx/5xx abort() calls) — never webhook.
+        if isinstance(exc, HTTPException):
+            return exc
+        log.error("Unhandled exception in request context", exc_info=exc)
+        return InternalServerError()
 
     log.info("Application ready")
 
