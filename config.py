@@ -45,6 +45,20 @@ class Config:
 
     live_data_ttl: int = 60
 
+    # Seconds past expiry that a stale cached value may still be served while
+    # an upstream is failing (warm-path degradation). Beyond this bound the
+    # API reverts to its documented hard-fail behaviour (HTTP 500).
+    stale_max_age: int = 3600
+
+    # Seconds a failed upstream fetch is negative-cached (fail fast while an
+    # upstream is down). Recovery latency is bounded by this value.
+    cache_negative_ttl_seconds: float = 5.0
+
+    # Pre-populate caches at startup so the first request after a deploy does
+    # not pay the upstream fetch cost. One warmup thread per uWSGI worker.
+    enable_warmup: bool = True
+    warmup_retry_seconds: int = 30
+
     # Session webhook for error notifications. Set session_webhook_url to enable.
     # The URL should be the full webhook endpoint including the token, e.g.:
     #   http://{ip}:{port}/{token}

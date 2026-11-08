@@ -4,6 +4,16 @@ server {
 
         client_max_body_size 10M;
 
+        # Onion request endpoints: legitimate payloads are a few KB; cap the
+        # body well below the global limit so oversized garbage is rejected
+        # before it reaches the decrypt worker.
+        location ~ ^/(oxen|loki)/v[34]/lsrpc$ {
+                client_max_body_size 64k;
+
+                include /etc/nginx/uwsgi_params;
+                uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
+        }
+
         location / {
                 include /etc/nginx/uwsgi_params;
                 uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
@@ -18,6 +28,13 @@ server {
         server_name networkv1.getsession.org;
 
         client_max_body_size 10M;
+
+        location ~ ^/(oxen|loki)/v[34]/lsrpc$ {
+                client_max_body_size 64k;
+
+                include /etc/nginx/uwsgi_params;
+                uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
+        }
 
         location / {
                 include /etc/nginx/uwsgi_params;

@@ -23,3 +23,6 @@ key_x25519
 
 Builds/
 Code/
+
+# Tests
+.pytest_cache/

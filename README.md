@@ -129,6 +129,17 @@ config = Config(
     web3_provider_url="http://10.24.0.1/arb",
     disable_web3_client=False,      # set True to skip Web3 (no reward pool balance)
 
+    # Degradation behaviour: when an upstream fails after a value has been
+    # cached, the last known value is served for up to stale_max_age seconds
+    # past expiry; failed fetches are retried at most once per
+    # cache_negative_ttl_seconds. Cold-path failures still return 500.
+    stale_max_age=3600,
+    cache_negative_ttl_seconds=5.0,
+
+    # Boot warmup: each worker pre-populates caches at startup.
+    enable_warmup=True,
+    warmup_retry_seconds=30,
+
     # Onion requests
     enable_onion_requests=True,     # set False to disable
     onion_req_key_path="key_x25519",
