@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 import coloredlogs
@@ -35,7 +36,9 @@ def create_app(config: Config) -> flask.Flask:
         install_excepthooks()
         log.info("Session webhook error reporting enabled")
 
-    cache = Cache(default_ttl=config.live_data_ttl)
+    cache = Cache(default_ttl=config.live_data_ttl,
+                  stale_max_age=config.stale_max_age,
+                  negative_ttl=config.cache_negative_ttl_seconds)
 
     if not is_db_initialised(config.prices_sqlite_db):
         log.info(
@@ -49,6 +52,30 @@ def create_app(config: Config) -> flask.Flask:
     network_reader = NetworkReader(config, cache)
 
     app = flask.Flask(__name__)
+
+    if config.enable_warmup:
+        warmup_done = threading.Event()
+
+        def _warmup():
+            while True:
+                try:
+                    price_reader.get_latest()
+                    network_reader.get_token_info()
+                    network_reader.get_network_info()
+                except Exception as exc:
+                    log.warning(
+                        "Warmup fetch failed (%s); retrying in %ss",
+                        exc, config.warmup_retry_seconds)
+                    time.sleep(config.warmup_retry_seconds)
+                    continue
+                log.info("Warmup complete: caches populated")
+                warmup_done.set()
+                return
+
+        threading.Thread(target=_warmup, daemon=True,
+                         name="cache-warmup").start()
+        # Exposed for tests/health tooling; not part of the HTTP contract.
+        app.config["WARMUP_DONE"] = warmup_done
 
     @app.route("/info")
     def route_info():

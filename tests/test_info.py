@@ -120,3 +120,43 @@ def test_info_web3_disabled_shape(make_app):
         "network_staked_tokens": 25_000_000.0,
         "network_staked_usd": 25_000_000.0 * PRICE,
     }
+
+
+def test_info_serves_last_known_values_when_web3_fails_after_warmup(make_app):
+    """Warm-path degradation: an upstream that fails AFTER a value has been
+    cached must not 500 /info — the last known value is served. Response
+    shape is identical (no new nulls); only data freshness degrades.
+    Cold-path failure (no cached value) is pinned separately by the
+    tripwire tests and stays 500.
+    """
+    from price import PriceDB
+    row = PriceDB(token=TOKEN, price=PRICE, market_cap=MARKET_CAP, updated_at=NOW - 60)
+    app, _ = make_app(price_rows=[row],
+                      overrides={"live_data_ttl": 0})  # expire immediately
+    client = _client(app)
+
+    # Warm: first request populates caches (blocking, succeeds).
+    warm = client.get("/info")
+    assert warm.status_code == 200
+    assert warm.get_json()["token"]["staking_reward_pool"] == WEB3_REWARD_POOL
+
+    # RPC goes down (err.log scenario). ttl=0 means every key is expired on
+    # the next request, so this exercises the stale-serving path directly.
+    from conftest import Web3Stub
+    Web3Stub.fail = ConnectionRefusedError("[Errno 111] refused")
+
+    degraded = client.get("/info")
+    assert degraded.status_code == 200
+    body = degraded.get_json()
+    # Exact same shape and the last known values — no nulls introduced.
+    assert body["token"] == {
+        "staking_requirement": 25000,
+        "staking_reward_pool": WEB3_REWARD_POOL,
+        "contract_address": CONTRACT_ADDRESS,
+        "circulating_supply": CIRCULATING_SUPPLY,
+    }
+    assert body["network"] == {
+        "network_size": 1000,
+        "network_staked_tokens": 25_000_000.0,
+        "network_staked_usd": 25_000_000.0 * PRICE,
+    }

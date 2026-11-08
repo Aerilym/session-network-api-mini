@@ -119,12 +119,15 @@ def make_app(tmp_path, monkeypatch):
 
         sub = tmp_path / "app{}".format(next(counter))
         sub.mkdir()
-        config = Config(
+        kwargs = dict(
             prices_sqlite_db=str(sub / "prices.db"),
             prices_sqlite_schema=str(REPO / "schema_prices.sql"),
             onion_req_key_path=str(sub / "key_x25519"),
-            **(overrides or {}),
+            # Warmup threads outlive monkeypatched stubs; opt-in per test.
+            enable_warmup=False,
         )
+        kwargs.update(overrides or {})
+        config = Config(**kwargs)
 
         calls = {"ssb": 0, "supply": 0, "web3": 0}
         Web3Stub.fail = web3_fail

@@ -33,7 +33,7 @@ def read_network_info_sqlite(db_path: str) -> dict:
 
 
 def read_network_info_api(api_endpoint: str) -> dict:
-    resp = requests.get(api_endpoint, timeout=15)
+    resp = requests.get(api_endpoint, timeout=5)
     resp.raise_for_status()
     data = resp.json().get("network")
     if data is None:
@@ -64,7 +64,18 @@ class Web3BalanceReader:
         self.token_address = eth_utils.to_checksum_address(
             config.token_contract_address
         )
-        self.w3 = Web3(HTTPProvider(config.web3_provider_url))
+        self.w3 = Web3(
+            HTTPProvider(config.web3_provider_url,
+                         request_kwargs={"timeout": 5}),
+        )
+        # web3 < 8: the validation middleware issues an extra eth_chainId
+        # request on every contract call, doubling RPC round trips. We call
+        # one constant function against a pinned chain and don't need it.
+        # (web3 >= 8 does not include it in the default onion.)
+        try:
+            self.w3.middleware_onion.remove("validation")
+        except Exception:
+            log.debug("validation middleware not present in web3 onion")
         self.contract = self.w3.eth.contract(
             address=self.token_address, abi=ERC20_BALANCEOF_ABI)
         log.info(
@@ -124,7 +135,7 @@ class NetworkReader:
     def fetch_circulating_supply(self) -> float | None:
         try:
             resp = requests.get(
-                self.circulating_supply_api_url, timeout=10)
+                self.circulating_supply_api_url, timeout=5)
             if not resp.ok:
                 log.warning(
                     "circulating_supply API returned %s: %s",
@@ -168,6 +179,7 @@ class NetworkReader:
             "network_info_basic",
             getter=self.build_network_info,
             ttl=self.ttl,
+            stale_ok=True,
         )
 
     def build_network_info(self) -> dict:
