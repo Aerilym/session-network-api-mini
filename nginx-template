@@ -1,22 +1,40 @@
+# Strict endpoint allowlist: only the paths the API actually serves are
+# proxied to uWSGI. Everything else (scanner noise like /.env, /index.php,
+# /wp-admin, random paths) is answered with 404 by nginx and never reaches
+# the application.
+
 server {
         listen 80;
         server_name networkv1.getsession.org;
 
-        client_max_body_size 10M;
-
-        # Onion request endpoints: legitimate payloads are a few KB; cap the
-        # body well below the global limit so oversized garbage is rejected
-        # before it reaches the decrypt worker.
-        location ~ ^/(oxen|loki)/v[34]/lsrpc$ {
-                client_max_body_size 64k;
-
+        # GET /info
+        location = /info {
+                limit_except GET { deny all; }
                 include /etc/nginx/uwsgi_params;
                 uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
         }
 
-        location / {
+        # GET /prices/<token>/<period> — path shape is checked here; the
+        # token and period values are validated by the app (404 / 400).
+        location ~ ^/prices/[A-Za-z0-9._-]+/[A-Za-z0-9]+$ {
+                limit_except GET { deny all; }
                 include /etc/nginx/uwsgi_params;
                 uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
+        }
+
+        # Onion request endpoints (POST only). Legitimate payloads are a
+        # few KB; cap the body well below nginx's default limit so oversized
+        # garbage is rejected before it reaches the decrypt worker.
+        location ~ ^/(oxen|loki)/v[34]/lsrpc$ {
+                limit_except POST { deny all; }
+                client_max_body_size 64k;
+                include /etc/nginx/uwsgi_params;
+                uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
+        }
+
+        # Everything else: not served here.
+        location / {
+                return 404;
         }
 
         access_log /var/log/nginx/networkv1.getsession.org.access.log;
@@ -27,18 +45,27 @@ server {
         listen 443 ssl;
         server_name networkv1.getsession.org;
 
-        client_max_body_size 10M;
+        location = /info {
+                limit_except GET { deny all; }
+                include /etc/nginx/uwsgi_params;
+                uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
+        }
+
+        location ~ ^/prices/[A-Za-z0-9._-]+/[A-Za-z0-9]+$ {
+                limit_except GET { deny all; }
+                include /etc/nginx/uwsgi_params;
+                uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
+        }
 
         location ~ ^/(oxen|loki)/v[34]/lsrpc$ {
+                limit_except POST { deny all; }
                 client_max_body_size 64k;
-
                 include /etc/nginx/uwsgi_params;
                 uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
         }
 
         location / {
-                include /etc/nginx/uwsgi_params;
-                uwsgi_pass unix:///home/network-api/api/network-api.wsgi;
+                return 404;
         }
 
         access_log /var/log/nginx/networkv1.getsession.org.access.log;
