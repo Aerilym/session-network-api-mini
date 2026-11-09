@@ -61,10 +61,30 @@ def test_backfill_end_to_end_no_overlap_with_existing(tmp_path):
         (now - 10, 0.50, 50.0),   # same ts as existing -> filtered, not duped
         (now - 5, 0.51, 51.0),    # newer than existing -> filtered
     ])
-    rows = to_price_rows(payload, TOKEN, oldest_price_ts(db))
+    rows = to_price_rows(payload, TOKEN, oldest_price_ts(db, TOKEN))
     write_prices(db, rows)
 
     stored = sorted(get_prices_since(db, TOKEN, 0), key=lambda r: r.updated_at)
     assert [(r.price, r.updated_at) for r in stored] == [(0.40, now - 86400),
                                                          (0.50, now - 10)]
-    assert oldest_price_ts(db) == now - 86400
+    assert oldest_price_ts(db, TOKEN) == now - 86400
+
+
+def test_oldest_price_ts_is_per_token(tmp_path):
+    # Tokens start at different times: an empty token's backfill must not be
+    # capped by another token's coverage.
+    db = _db(tmp_path)
+    now = int(time.time())
+    write_prices(db, [PriceDB("token-a", 0.5, 5.0, now - 86400 * 10)])
+
+    assert oldest_price_ts(db, "token-a") == now - 86400 * 10
+    assert oldest_price_ts(db, "token-b") is None  # own coverage, not global MIN
+
+    # token-b (empty) backfills its full fetched range; token-a only older.
+    payload = _payload([(now - 86400 * 30, 0.1, 1.0),
+                        (now - 86400 * 5, 0.2, 2.0)])
+    b_rows = to_price_rows(payload, "token-b", oldest_price_ts(db, "token-b"))
+    assert [r.price for r in b_rows] == [0.1, 0.2]
+
+    a_rows = to_price_rows(payload, "token-a", oldest_price_ts(db, "token-a"))
+    assert [r.price for r in a_rows] == [0.1]  # capped at token-a's own start

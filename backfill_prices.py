@@ -21,9 +21,13 @@ from config import config
 from price import PriceDB, write_prices
 
 
-def oldest_price_ts(db_path: str) -> int | None:
+def oldest_price_ts(db_path: str, token: str) -> int | None:
+    """Earliest recorded timestamp for THIS token (per-token coverage:
+    tokens can start at different times)."""
     with sqlite3.connect("file:{}?mode=ro".format(db_path), uri=True) as conn:
-        row = conn.execute("SELECT MIN(updated_at) FROM prices").fetchone()
+        row = conn.execute(
+            "SELECT MIN(updated_at) FROM prices WHERE token = ?",
+            (token,)).fetchone()
     return row[0] if row else None
 
 
@@ -75,7 +79,7 @@ def main() -> int:
 
     db = config.prices_sqlite_db
     for token in config.coingecko_api_token_ids:
-        oldest = oldest_price_ts(db)
+        oldest = oldest_price_ts(db, token)
         payload = fetch_daily_history(token, config.coingecko_api_key)
         rows = to_price_rows(payload, token, oldest)
 
@@ -100,8 +104,8 @@ def main() -> int:
 
         write_prices(db, rows)
         print("  inserted {} rows ({})".format(len(rows), span))
-        new_oldest = oldest_price_ts(db)
-        print("  DB now starts {}".format(_fmt(new_oldest)))
+        new_oldest = oldest_price_ts(db, token)
+        print("  DB now starts {} for {}".format(_fmt(new_oldest), token))
 
     return 0
 
