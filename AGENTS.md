@@ -31,6 +31,11 @@ response is a breaking change.
 - Onion protocol quirks are contract, not cleanup targets: the Android
   `body: "null"` GET quirk, the `/loki/v3/lsrpc` alias, v3 base64-encoded
   replies, v4 raw bencode replies.
+- `/prices` granularity is contract: `1h`/`1d` raw; `7d`/`30d`/`3mo`/`6mo`/`1y`
+  downsampled to the last observation per hour/4h/12h/24h/48h bucket
+  respectively (`PRICE_RANGE_BUCKETS` in price.py). Never average or
+  fabricate prices when downsampling — every returned row must be a real
+  recorded observation.
 
 `tests/` is a characterization suite enforcing this with exact
 dict-equality assertions — a red test after a change means you changed the

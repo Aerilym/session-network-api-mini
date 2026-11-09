@@ -57,7 +57,7 @@ Returns price history for a token over a rolling time window.
 | Parameter | Values |
 |---|---|
 | `token` | Any token ID configured in `coingecko_api_token_ids` (e.g. `session-token`) |
-| `period` | `1h`, `1d`, `7d`, `30d` |
+| `period` | `1h`, `1d`, `7d`, `30d`, `3mo`, `6mo`, `1y` |
 
 **Example:** `GET /prices/session-token/7d`
 
@@ -76,6 +76,8 @@ Returns price history for a token over a rolling time window.
 ```
 
 Prices are ordered newest first. An empty array is returned if no data exists for the requested window.
+
+**Granularity:** `1h` and `1d` return every recorded observation. Wider windows return the last observation per time bucket: `7d` hourly (~168 points), `30d` 4-hourly (~180), `3mo` 12-hourly (~180), `6mo` daily (~180), `1y` 2-daily (~183). Every returned row is a real recorded observation — prices are never averaged or fabricated.
 
 ---
 

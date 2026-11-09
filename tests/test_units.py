@@ -36,5 +36,5 @@ class TestTokenMaths:
         assert token_from_atomic(0) == 0.0
 
 
-def test_price_periods_are_the_documented_four():
-    assert set(PRICE_PERIODS) == {"1h", "1d", "7d", "30d"}
+def test_price_periods_are_the_documented_seven():
+    assert set(PRICE_PERIODS) == {"1h", "1d", "7d", "30d", "3mo", "6mo", "1y"}

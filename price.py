@@ -71,6 +71,42 @@ def get_prices_since(db_path: str, token: str, since: int) -> list[PriceDB]:
             return [PriceDB(*row) for row in cur.fetchall()]
 
 
+# Wide windows are downsampled to keep responses small (~450KB raw at 30d):
+# the API returns the LAST actual recorded observation per time bucket —
+# never averaged or fabricated prices. Bucket sizes are client-facing
+# contract, pinned by tests. 1h and 1d windows are served raw.
+PRICE_RANGE_BUCKETS = {
+    7 * 24 * 60 * 60: 60 * 60,             # 7d   -> hourly    (~168 points)
+    30 * 24 * 60 * 60: 4 * 60 * 60,        # 30d  -> 4-hourly  (~180 points)
+    90 * 24 * 60 * 60: 12 * 60 * 60,       # 3mo  -> 12-hourly (~180 points)
+    180 * 24 * 60 * 60: 24 * 60 * 60,      # 6mo  -> daily     (~180 points)
+    365 * 24 * 60 * 60: 48 * 60 * 60,      # 1y   -> 2-daily   (~183 points)
+}
+
+
+def get_prices_bucketed(db_path: str, token: str, since: int,
+                        bucket_seconds: int) -> list[PriceDB]:
+    """Downsample: newest real observation per epoch-aligned bucket."""
+    with closing(_connect_ro(db_path)) as conn:
+        with closing(conn.cursor()) as cur:
+            cur.execute(
+                """
+                SELECT token, price, market_cap, updated_at FROM (
+                    SELECT token, price, market_cap, updated_at,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY updated_at / ?
+                               ORDER BY updated_at DESC
+                           ) AS rn
+                    FROM prices
+                    WHERE token = ? AND updated_at >= ?
+                ) WHERE rn = 1
+                ORDER BY updated_at DESC
+                """,
+                (bucket_seconds, token, since),
+            )
+            return [PriceDB(*row) for row in cur.fetchall()]
+
+
 def write_prices(db_path: str, prices: list[PriceDB]) -> None:
     with closing(_connect_rw(db_path)) as conn:
         conn.execute("BEGIN")
@@ -219,11 +255,15 @@ class PriceReader:
 
     def get_range(self, token: str, range_seconds: int) -> list[dict]:
         key = "price-range-{}-{}".format(token, range_seconds)
+        bucket = PRICE_RANGE_BUCKETS.get(range_seconds, 0)
 
         # The getter recomputes `since` at refresh time so background refreshes
         # always query the correct window rather than the window from cold-start.
         def fetch() -> list[PriceDB]:
             since = trunc(time.time()) - range_seconds
+            if bucket:
+                return get_prices_bucketed(
+                    self._db_path, token, since, bucket)
             return get_prices_since(self._db_path, token, since)
 
         cached: list[PriceDB] = self._cache.get(
